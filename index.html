@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Günlük Rutin Panosu</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#0a0a0a; --panel:#141414; --line:#262626;
+    --txt:#f5f5f5; --dim:#888; --accent:#00ff88;
+    --past:#ff4d4d; --future:#00ff88; --now-col:#ff9500;
+    --now-bg:#ff9500; --now-txt:#0a0a0a;
+  }
+  html,body { height:100%; background:var(--bg); color:var(--txt);
+    font-family:'Helvetica Neue',Arial,sans-serif; overflow:hidden; }
+  .wrap { display:flex; height:100vh; max-height:100vh; overflow:hidden; }
+
+  /* ===== SOL: ŞU AN ===== */
+  .now { flex:0 0 42%; padding:3.5vh 3vw; display:flex; flex-direction:column;
+    border-right:2px solid var(--line);
+    background:linear-gradient(160deg, #0a0a0a, #0a0a0a);
+    transition:background 1.5s ease; }
+  .clock { font-size:7vw; font-weight:800; letter-spacing:-0.02em; line-height:1;
+    font-variant-numeric:tabular-nums; }
+  .date { font-size:1.8vw; color:var(--dim); margin-top:0.8vh; text-transform:capitalize; }
+
+  .weather { margin-top:2.5vh; background:rgba(255,255,255,0.03);
+    border:1px solid var(--line); border-radius:1vw; padding:1.6vh 1.4vw; }
+  .w-head { display:flex; align-items:center; gap:1vw; }
+  .env-icon { font-size:3.6vw; line-height:1; }
+  .w-temp-wrap { display:flex; flex-direction:column; flex:1; }
+  .w-temp { font-size:3vw; font-weight:800; line-height:1;
+    font-variant-numeric:tabular-nums; color:var(--txt); }
+  .w-text { font-size:1.3vw; color:var(--dim); margin-top:0.4vh; }
+  .w-hilo { font-size:1.5vw; font-weight:600; color:var(--dim);
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .w-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.2vh 1vw;
+    margin-top:1.8vh; padding-top:1.6vh; border-top:1px solid var(--line); }
+  .w-cell { display:flex; flex-direction:column; gap:0.3vh; }
+  .w-cell-wide { grid-column:1 / -1; padding-top:1.2vh; margin-top:0.4vh;
+    border-top:1px solid var(--line); }
+  .w-cell-wide .w-v { font-size:1.7vw; font-weight:800; }
+  .w-l { font-size:0.95vw; color:var(--dim); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .w-v { font-size:1.4vw; font-weight:700; color:var(--txt);
+    font-variant-numeric:tabular-nums; }
+
+  .now-card { margin-top:auto; margin-bottom:auto; }
+  .now-label { font-size:1.6vw; color:var(--now-col); text-transform:uppercase;
+    letter-spacing:0.15em; font-weight:700; margin-bottom:1.5vh; }
+  .now-act { font-size:5vw; font-weight:800; line-height:1.05; color:var(--now-col); }
+  .now-desc { font-size:1.7vw; color:var(--dim); margin-top:1.5vh; line-height:1.4; }
+  .now-time { font-size:1.9vw; color:var(--txt); margin-top:2.5vh; font-weight:600;
+    font-variant-numeric:tabular-nums; }
+
+  .progress { margin-top:3vh; height:1vh; background:var(--line); border-radius:1vh; overflow:hidden; }
+  .progress-bar { height:100%; background:var(--now-col); width:0%; transition:width 1s linear; }
+
+  .next { margin-top:2.5vh; font-size:1.5vw; color:var(--dim); }
+  .next b { color:var(--txt); font-weight:600; }
+
+  /* ===== SAĞ: TÜM PLAN ===== */
+  .plan { flex:1; padding:2.5vh 2vw; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+  .plan-title { font-size:1.3vw; color:var(--dim); text-transform:uppercase;
+    letter-spacing:0.15em; margin-bottom:1.2vh; font-weight:700; flex-shrink:0; }
+  .blocks { display:flex; flex-direction:column; gap:0.3vh; flex:1; min-height:0; }
+  .block { display:grid; grid-template-columns:6.5vw 1fr auto; align-items:center;
+    column-gap:0.8vw; padding:0 1vw;
+    border-radius:0.5vw; background:var(--panel); transition:background 0.3s, opacity 0.3s;
+    flex:1 1 0; min-height:0; box-shadow:inset 0.4vw 0 0 transparent; }
+  .block .b-time { font-size:1.2vw; font-weight:700;
+    font-variant-numeric:tabular-nums; }
+  .block .b-name { font-size:1.2vw; font-weight:600; min-width:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .block .b-dur { font-size:0.95vw; white-space:nowrap; color:var(--dim); text-align:right; }
+
+  /* gelecek — yeşil */
+  .block.future { box-shadow:inset 0.4vw 0 0 var(--future); }
+  .block.future .b-time { color:var(--future); }
+  .block.future .b-name { color:var(--txt); }
+  /* geçmiş — kırmızı */
+  .block.past { box-shadow:inset 0.4vw 0 0 var(--past); opacity:0.55; }
+  .block.past .b-time { color:var(--past); }
+  .block.past .b-name { color:var(--dim); }
+  /* şu an — turuncu dolgu, koyu yazı */
+  .block.now { background:var(--now-bg); box-shadow:none; }
+  .block.now .b-time { color:#0a0a0a !important; font-weight:800; }
+  .block.now .b-name { color:#0a0a0a !important; font-weight:800; }
+  .block.now .b-dur { color:rgba(10,10,10,0.75) !important; }
+
+  .badge-meal { display:inline-block; font-size:0.7vw; padding:0.1vh 0.5vw;
+    border-radius:1vw; background:#3a2f1a; color:#e0b050; margin-left:0.5vw;
+    vertical-align:middle; text-transform:uppercase; letter-spacing:0.05em; }
+  .block.now .badge-meal { background:rgba(10,10,10,0.18); color:#0a0a0a; }
+
+  /* başlangıç ekranı (ses izni) */
+  #start { position:fixed; inset:0; background:var(--bg); z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+  #start h1 { font-size:3vw; margin-bottom:2vh; }
+  #start p { font-size:1.5vw; color:var(--dim); }
+  #start .btn { margin-top:4vh; font-size:2vw; padding:2vh 4vw; background:var(--accent);
+    color:#0a0a0a; border-radius:1vw; font-weight:800; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="now">
+      <div>
+        <div class="clock" id="clock">--:--</div>
+        <div class="date" id="date">—</div>
+
+        <div class="weather">
+          <div class="w-head">
+            <span class="env-icon" id="wIcon">☀️</span>
+            <div class="w-temp-wrap">
+              <span class="w-temp" id="wTemp">—°</span>
+              <span class="w-text" id="wText">Alanya</span>
+            </div>
+            <div class="w-hilo" id="wHiLo">—</div>
+          </div>
+          <div class="w-grid">
+            <div class="w-cell"><span class="w-l">Hissedilen</span><span class="w-v" id="wFeels">—</span></div>
+            <div class="w-cell"><span class="w-l">Nem</span><span class="w-v" id="wHum">—</span></div>
+            <div class="w-cell"><span class="w-l">Rüzgar</span><span class="w-v" id="wWind">—</span></div>
+            <div class="w-cell"><span class="w-l">🌅 Gün doğumu</span><span class="w-v" id="wSunrise">—</span></div>
+            <div class="w-cell"><span class="w-l">🌇 Gün batımı</span><span class="w-v" id="wSunset">—</span></div>
+            <div class="w-cell"><span class="w-l"><span id="mIcon">🌙</span> <span id="mPhase">Ay</span></span><span class="w-v" id="mIllum">—</span></div>
+            <div class="w-cell w-cell-wide"><span class="w-l">🌬️ Hava Kalitesi (AQI)</span><span class="w-v" id="aqiVal">—</span><span class="w-l" id="aqiPm" style="margin-top:0.2vh;">—</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="now-card">
+        <div class="now-label" id="nowLabel">ŞU AN</div>
+        <div class="now-act" id="nowAct">—</div>
+        <div class="now-desc" id="nowDesc"></div>
+        <div class="now-time" id="nowTime"></div>
+        <div class="progress"><div class="progress-bar" id="progBar"></div></div>
+        <div class="next" id="next"></div>
+      </div>
+    </div>
+
+    <div class="plan">
+      <div class="plan-title">Günlük Plan · Cut Rutini</div>
+      <div class="blocks" id="blocks"></div>
+    </div>
+  </div>
+
+<script>
+// ===== GÜNLÜK PLAN (04:00 düzeni, cut) =====
+// start: dakika cinsinden (00:00'dan itibaren). speak: sesli bildirim metni.
+const SCHEDULE = [
+  { start:"04:00", name:"Aktivasyon", desc:"15 burpee + 30 squat", speak:"Günaydın. Aktivasyon zamanı. 15 burpee, 30 squat." },
+  { start:"04:05", name:"Meditasyon", desc:"15 dakika", speak:"Meditasyon zamanı." },
+  { start:"04:20", name:"İş / Çalışma", desc:"1. blok — en odaklı saat", speak:"Çalışma zamanı. İlk blok." },
+  { start:"06:50", name:"Kahvaltı", desc:"Yumurta beyazı omlet + glutensiz yulaf + yarım muz", meal:true, speak:"Kahvaltı zamanı." },
+  { start:"07:20", name:"İş / Çalışma", desc:"2. blok", speak:"Çalışma zamanı. İkinci blok." },
+  { start:"09:20", name:"Ara Öğün", desc:"Laktozsuz whey + elma", meal:true, speak:"Ara öğün zamanı." },
+  { start:"09:35", name:"Brain HQ", desc:"30 dakika zihin egzersizi", speak:"Brain H Q zamanı." },
+  { start:"10:05", name:"Matematik", desc:"30 dakika", speak:"Matematik zamanı." },
+  { start:"10:35", name:"Romence", desc:"15 dakika dil çalışması", speak:"Romence çalışma zamanı." },
+  { start:"10:50", name:"Çizim", desc:"30 dakika", speak:"Çizim zamanı." },
+  { start:"11:20", name:"Serbest / Hazırlık", desc:"Öğle yemeğine hazırlık", speak:null },
+  { start:"12:00", name:"Öğle Yemeği", desc:"Tavuk + pirinç/kinoa + bol salata", meal:true, speak:"Öğle yemeği zamanı." },
+  { start:"13:00", name:"Öğlen Uykusu", desc:"En sıcak saat · 1 tam döngü (90 dk)", speak:"Öğlen uykusu zamanı. İyi dinlen." },
+  { start:"14:30", name:"Kitap Okuma", desc:"60 dakika", speak:"Kitap okuma zamanı." },
+  { start:"15:30", name:"Hafif / Opsiyonel İş", desc:"Serinleyene kadar esnek blok", speak:"Hafif iş zamanı." },
+  { start:"17:00", name:"Antrenman Öncesi", desc:"Whey + muz", meal:true, speak:"Antrenman öncesi atıştırma zamanı." },
+  { start:"17:30", name:"Ağırlık Antrenmanı", desc:"Günün split'ine göre — 40 dk", speak:"Ağırlık antrenmanı zamanı. Hadi başlayalım." },
+  { start:"18:10", name:"Kardiyo", desc:"Sal/Cmt + ops. Per · eliptik/row/stair · 25-30 dk", speak:"Kardiyo zamanı." },
+  { start:"18:45", name:"Akşam Yemeği", desc:"Somon/yağsız et + tatlı patates + yeşil sebze", meal:true, speak:"Akşam yemeği zamanı." },
+  { start:"19:30", name:"Yatmadan Önce", desc:"Laktozsuz yoğurt / bitki bazlı kazein", meal:true, speak:"Son öğün zamanı. Uykuya hazırlan." },
+  { start:"20:00", name:"Ana Uyku", desc:"8 saat → 04:00", speak:"Uyku zamanı. İyi geceler Doruk." },
+];
+
+const DAYS = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+
+function toMin(hhmm){ const [h,m]=hhmm.split(":").map(Number); return h*60+m; }
+
+// her bloğun bitişi = sonraki bloğun başı (son blok gece yarısına kadar)
+const blocks = SCHEDULE.map((b,i)=>{
+  const start = toMin(b.start);
+  const end = i < SCHEDULE.length-1 ? toMin(SCHEDULE[i+1].start) : 24*60;
+  return {...b, startMin:start, endMin:end};
+});
+
+let lastIndex = -1;
+let soundEnabled = false;
+let trVoice = null;
+
+// Piper yerel ses sunucusu (Pi'de localhost:5005)
+const PIPER_URL = "http://localhost:5005/speak";
+
+function pickTurkishVoice(){
+  const voices = speechSynthesis.getVoices();
+  trVoice = voices.find(v=>v.lang && v.lang.toLowerCase()==="tr-tr")
+         || voices.find(v=>v.lang && v.lang.toLowerCase().startsWith("tr"))
+         || null;
+}
+
+function speak(text){
+  if(!soundEnabled || !text) return;
+  // Önce Piper sunucusunu dene (doğal Türkçe ses)
+  fetch(PIPER_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({text:text})
+  }).catch(()=>{
+    // Piper yoksa tarayıcı sesine düş (yedek)
+    browserSpeak(text);
+  });
+}
+
+function browserSpeak(text){
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "tr-TR";
+    u.rate = 0.98; u.pitch = 1.0; u.volume = 1.0;
+    if(!trVoice) pickTurkishVoice();
+    if(trVoice) u.voice = trVoice;
+    speechSynthesis.speak(u);
+  } catch(e){ console.warn(e); }
+}
+
+function pad(n){ return n<10 ? "0"+n : ""+n; }
+
+// ===== AY EVRESİ (internetsiz hesaplama) =====
+function moonPhase(date){
+  // bilinen yeni ay referansı: 2000-01-06 18:14 UTC
+  const synodic = 29.53058867; // bir ay döngüsü (gün)
+  const ref = Date.UTC(2000,0,6,18,14,0)/86400000; // gün cinsinden
+  const now = date.getTime()/86400000;
+  let age = ((now - ref) % synodic);
+  if(age < 0) age += synodic;
+  const illum = Math.round((1 - Math.cos(2*Math.PI*age/synodic))/2 * 100);
+  // evre adı + emoji
+  let name, icon;
+  if(age < 1.85)       { name="Yeni Ay";          icon="🌑"; }
+  else if(age < 5.54)  { name="Hilal (büyüyen)";  icon="🌒"; }
+  else if(age < 9.23)  { name="İlk Dördün";       icon="🌓"; }
+  else if(age < 12.92) { name="Şişkin (büyüyen)"; icon="🌔"; }
+  else if(age < 16.61) { name="Dolunay";          icon="🌕"; }
+  else if(age < 20.30) { name="Şişkin (küçülen)"; icon="🌖"; }
+  else if(age < 23.99) { name="Son Dördün";       icon="🌗"; }
+  else if(age < 27.68) { name="Hilal (küçülen)";  icon="🌘"; }
+  else                 { name="Yeni Ay";          icon="🌑"; }
+  return { name, icon, illum };
+}
+
+function updateMoon(){
+  const m = moonPhase(new Date());
+  document.getElementById("mIcon").textContent = m.icon;
+  document.getElementById("mPhase").textContent = m.name;
+  document.getElementById("mIllum").textContent = "%"+m.illum;
+}
+
+// ===== HAVA DURUMU (Open-Meteo — ücretsiz, anahtarsız) =====
+const ALANYA = { lat:36.5444, lon:31.9998 };
+let sunData = { rise:null, set:null }; // dakika cinsinden (gökyüzü rengi için)
+// WMO hava kodu → emoji + Türkçe metin
+function wmo(code){
+  const map = {
+    0:["☀️","Açık"], 1:["🌤️","Az bulutlu"], 2:["⛅","Parçalı bulutlu"], 3:["☁️","Bulutlu"],
+    45:["🌫️","Sisli"], 48:["🌫️","Kırağılı sis"],
+    51:["🌦️","Hafif çisenti"], 53:["🌦️","Çisenti"], 55:["🌧️","Yoğun çisenti"],
+    61:["🌦️","Hafif yağmur"], 63:["🌧️","Yağmur"], 65:["🌧️","Şiddetli yağmur"],
+    71:["🌨️","Hafif kar"], 73:["🌨️","Kar"], 75:["❄️","Yoğun kar"],
+    80:["🌦️","Sağanak"], 81:["🌧️","Sağanak"], 82:["⛈️","Şiddetli sağanak"],
+    95:["⛈️","Gök gürültülü"], 96:["⛈️","Dolu fırtınası"], 99:["⛈️","Şiddetli fırtına"]
+  };
+  return map[code] || ["🌡️","—"];
+}
+
+// ===== GÖKYÜZÜ RENGİ (gün ışığına göre sol panel arka planı) =====
+function updateSky(){
+  const now = new Date();
+  const cur = now.getHours()*60 + now.getMinutes();
+  const rise = sunData.rise != null ? sunData.rise : 5*60+30;   // ~05:30
+  const set  = sunData.set  != null ? sunData.set  : 20*60+15;  // ~20:15
+
+  const dawnStart = rise - 40, dawnEnd = rise + 30;     // şafak
+  const duskStart = set - 40,  duskEnd = set + 30;      // alacakaranlık
+  let g;
+
+  if(cur < dawnStart || cur > duskEnd){
+    g = "linear-gradient(160deg, #0a0e1a, #05060a)";                          // gece
+  } else if(cur < dawnEnd){
+    g = "linear-gradient(160deg, #2a2350, #7a4a5a 55%, #c87a4a)";             // şafak
+  } else if(cur < rise + 150){
+    g = "linear-gradient(160deg, #1a3a5a, #2e6a8a 60%, #5a9ab5)";             // sabah
+  } else if(cur < duskStart){
+    g = "linear-gradient(160deg, #1e4e7a, #3a7aa5 55%, #6aa8c8)";             // gündüz
+  } else if(cur < duskEnd){
+    g = "linear-gradient(160deg, #3a2550, #8a4540 50%, #d07840)";            // gün batımı
+  } else {
+    g = "linear-gradient(160deg, #0a0e1a, #05060a)";                          // gece
+  }
+  document.querySelector(".now").style.background = g;
+}
+
+// ===== HAVA KALİTESİ (Open-Meteo Air Quality — ücretsiz, anahtarsız) =====
+function aqiCategory(aqi){
+  // Avrupa AQI skalası
+  if(aqi <= 20)  return ["İyi",       "#00e676"];
+  if(aqi <= 40)  return ["Makul",     "#9ccc65"];
+  if(aqi <= 60)  return ["Orta",      "#ffd54f"];
+  if(aqi <= 80)  return ["Kötü",      "#ff9800"];
+  if(aqi <= 100) return ["Çok Kötü",  "#f44336"];
+  return            ["Tehlikeli", "#9c27b0"];
+}
+
+function updateAirQuality(){
+  const url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude="+ALANYA.lat+
+    "&longitude="+ALANYA.lon+
+    "&current=european_aqi,pm2_5,pm10&timezone=auto";
+  fetch(url)
+    .then(r=>r.json())
+    .then(d=>{
+      const c = d.current;
+      const aqi = Math.round(c.european_aqi);
+      const pm25 = Math.round(c.pm2_5);
+      const [label,color] = aqiCategory(aqi);
+      document.getElementById("aqiVal").textContent = aqi + " · " + label;
+      document.getElementById("aqiVal").style.color = color;
+      document.getElementById("aqiPm").textContent = "PM2.5: " + pm25;
+    })
+    .catch(e=>{
+      document.getElementById("aqiVal").textContent = "—";
+      console.warn("hava kalitesi:", e);
+    });
+}
+
+function updateWeather(){
+  const url = "https://api.open-meteo.com/v1/forecast?latitude="+ALANYA.lat+
+    "&longitude="+ALANYA.lon+
+    "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code"+
+    "&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset"+
+    "&timezone=auto&forecast_days=1";
+  fetch(url)
+    .then(r=>r.json())
+    .then(d=>{
+      const c = d.current, dy = d.daily;
+      const t = Math.round(c.temperature_2m);
+      const feels = Math.round(c.apparent_temperature);
+      const [icon,text] = wmo(c.weather_code);
+      const hi = Math.round(dy.temperature_2m_max[0]);
+      const lo = Math.round(dy.temperature_2m_min[0]);
+      const hum = Math.round(c.relative_humidity_2m);
+      const wind = Math.round(c.wind_speed_10m);
+      const sr = (dy.sunrise[0]||"").slice(11,16);
+      const ss = (dy.sunset[0]||"").slice(11,16);
+
+      document.getElementById("wIcon").textContent = icon;
+      document.getElementById("wTemp").textContent = t+"°";
+      document.getElementById("wText").textContent = text;
+      document.getElementById("wHiLo").textContent = "↑"+hi+"°  ↓"+lo+"°";
+      document.getElementById("wFeels").textContent = feels+"°";
+      document.getElementById("wHum").textContent = "%"+hum;
+      document.getElementById("wWind").textContent = wind+" km/s";
+      document.getElementById("wSunrise").textContent = sr || "—";
+      document.getElementById("wSunset").textContent = ss || "—";
+
+      // gökyüzü rengi için gün doğumu/batımını sakla (dakika)
+      if(sr){ const [h,m]=sr.split(":").map(Number); sunData.rise = h*60+m; }
+      if(ss){ const [h,m]=ss.split(":").map(Number); sunData.set = h*60+m; }
+      updateSky();
+    })
+    .catch(e=>{
+      document.getElementById("wText").textContent = "Hava verisi yok";
+      console.warn("hava:", e);
+    });
+}
+
+function render(){
+  const now = new Date();
+  const curMin = now.getHours()*60 + now.getMinutes();
+  const sec = now.getSeconds();
+
+  // saat & tarih
+  document.getElementById("clock").textContent = pad(now.getHours())+":"+pad(now.getMinutes());
+  document.getElementById("date").textContent =
+    DAYS[now.getDay()]+", "+now.getDate()+" "+MONTHS[now.getMonth()];
+
+  // aktif blok bul
+  let idx = -1;
+  for(let i=0;i<blocks.length;i++){
+    if(curMin >= blocks[i].startMin && curMin < blocks[i].endMin){ idx=i; break; }
+  }
+  // gece yarısı–04:00 arası: son blok (uyku) devam ediyor say
+  if(idx === -1){
+    if(curMin < blocks[0].startMin) idx = blocks.length-1; // gece, uyku
+  }
+
+  const b = blocks[idx];
+
+  // ŞU AN kartı
+  if(b){
+    document.getElementById("nowAct").textContent = b.name;
+    document.getElementById("nowDesc").textContent = b.desc || "";
+    const sH=Math.floor(b.startMin/60), sM=b.startMin%60;
+    let eMin = b.endMin>=24*60 ? b.endMin-24*60 : b.endMin;
+    const eH=Math.floor(eMin/60), eM=eMin%60;
+    document.getElementById("nowTime").textContent = pad(sH)+":"+pad(sM)+" – "+pad(eH)+":"+pad(eM);
+
+    // ilerleme çubuğu
+    let total = b.endMin - b.startMin;
+    let done = curMin - b.startMin;
+    if(curMin < blocks[0].startMin && idx===blocks.length-1){ // gece uyku sarması
+      total = (24*60 - b.startMin) + blocks[0].startMin;
+      done = (24*60 - b.startMin) + curMin;
+    }
+    const pct = Math.max(0, Math.min(100, (done/total)*100));
+    document.getElementById("progBar").style.width = pct+"%";
+
+    // sıradaki
+    const nextIdx = (idx+1) % blocks.length;
+    const nb = blocks[nextIdx];
+    document.getElementById("next").innerHTML = "Sıradaki: <b>"+nb.name+"</b> · "+nb.start;
+  }
+
+  // blok değişti mi? → sesli bildirim
+  if(idx !== lastIndex && idx !== -1){
+    if(lastIndex !== -1){ // ilk yüklemede konuşma
+      speak(b.speak);
+    }
+    lastIndex = idx;
+  }
+
+  // sağdaki plan listesi
+  const container = document.getElementById("blocks");
+  if(container.children.length === 0){
+    blocks.forEach((blk,i)=>{
+      const div = document.createElement("div");
+      div.className = "block";
+      div.id = "blk-"+i;
+      div.innerHTML =
+        '<div class="b-time">'+blk.start+'</div>'+
+        '<div class="b-name">'+blk.name+(blk.meal?'<span class="badge-meal">öğün</span>':'')+'</div>'+
+        '<div class="b-dur">'+formatDur(blk.endMin-blk.startMin)+'</div>';
+      container.appendChild(div);
+    });
+  }
+  // durumları güncelle: geçmiş=kırmızı, şu an=turuncu, gelecek=yeşil
+  blocks.forEach((blk,i)=>{
+    const el = document.getElementById("blk-"+i);
+    el.classList.remove("past","now","future");
+    if(i === idx){
+      el.classList.add("now");
+    } else {
+      // gece sarması: idx son blok (uyku) ve saat 00:00–04:00 arası
+      const nightWrap = (idx===blocks.length-1 && curMin < blocks[0].startMin);
+      let isPast;
+      if(nightWrap){
+        // uykudayız; tüm gündüz blokları "geçmiş", sadece uyku "now"
+        isPast = true;
+      } else {
+        isPast = (curMin >= blk.endMin);
+      }
+      el.classList.add(isPast ? "past" : "future");
+    }
+  });
+}
+
+function formatDur(min){
+  if(min>=60){ const h=Math.floor(min/60), m=min%60; return m? h+"sa "+m+"dk" : h+" saat"; }
+  return min+" dk";
+}
+
+// FullPageOS — sessiz otomatik başlatma (ses yok, buton yok)
+// soundEnabled false kalır, speak() hiçbir şey yapmaz
+keepAwake();      // ekranı uyanık tut
+lastIndex = -1;
+render();
+
+// voices bazı cihazlarda geç yüklenir → Türkçe sesi seç
+if('speechSynthesis' in window){
+  speechSynthesis.onvoiceschanged = ()=>{ pickTurkishVoice(); };
+  pickTurkishVoice();
+}
+
+// ekranı uyanık tut (Android Chrome destekler)
+let wakeLock = null;
+async function keepAwake(){
+  try {
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      document.addEventListener('visibilitychange', async ()=>{
+        if(wakeLock !== null && document.visibilityState === 'visible'){
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      });
+    }
+  } catch(e){ console.warn('wakeLock:', e); }
+}
+
+setInterval(render, 1000);
+render();
+
+// ay evresi + hava durumu: başta çalıştır, sonra periyodik yenile
+updateMoon();
+updateWeather();
+updateAirQuality();                       // hava kalitesi (AQI)
+updateSky();                              // gökyüzü rengi (hava gelmese de varsayılanla)
+setInterval(updateMoon, 60*60*1000);      // ay: saatte bir
+setInterval(updateWeather, 30*60*1000);   // hava: yarım saatte bir
+setInterval(updateAirQuality, 30*60*1000);// hava kalitesi: yarım saatte bir
+setInterval(updateSky, 5*60*1000);        // gökyüzü: 5 dakikada bir
+</script>
+</body>
+</html>
